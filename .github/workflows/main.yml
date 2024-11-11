@@ -1,8 +1,8 @@
 name: Update PR Description Based on Commits
 
 on:
-  pull_request_target:
-    types: [opened, synchronize, reopened, closed]
+  pull_request:
+    types: [opened, synchronize, reopened,closed]  # Trigger on PR creation, update, or reopen
 
 permissions:
   contents: read
@@ -11,7 +11,6 @@ permissions:
 
 jobs:
   update-pr-description:
-    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
     steps:
@@ -44,7 +43,7 @@ jobs:
           const prNumber = process.env.PR_NUMBER;
           const commits = process.env.COMMITS;
           
-          const newDescription = `### Pull Request Summary:\n\n### Commits:\n${commits}\n\n---\n_Merged._`;
+          const newDescription = `### Pull Request Summary:\n\n### Commits:\n${commits}\n\n---\n_Automatically generated summary._`;
           
           await github.rest.pulls.update({
             owner: context.repo.owner,
