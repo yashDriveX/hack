@@ -20,20 +20,20 @@ jobs:
     - name: Get PR Number and Commit Messages
       id: get_commits
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.TOKEN }}
       run: |
         # Set PR number directly or from secret if needed
         PR_NUMBER=${{ github.event.pull_request.number || env.PR_NUMBER }}
         echo "Retrieved PR Number: $PR_NUMBER"
 
-        # Fetch commit messages for the PR using GitHub CLI
+        # Fetch commit messages for the PR using GitHub CLI and format as bullet points
         commits=$(gh pr view $PR_NUMBER --json commits --jq '.commits[].commit.message' | sed 's/^/- /')
 
         # Debugging output to show fetched commit messages
         echo "Fetched Commits:"
         echo "$commits"
         
-        # Use multiline syntax for setting environment variables
+        # Set the commits variable with multiline handling
         echo "commits<<EOF" >> $GITHUB_ENV
         echo "$commits" >> $GITHUB_ENV
         echo "EOF" >> $GITHUB_ENV
@@ -42,7 +42,7 @@ jobs:
     - name: Update PR Description
       uses: actions/github-script@v6
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        github-token: ${{ secrets.TOKEN }}
         script: |
           const prNumber = process.env.pr_number;
           const commits = process.env.commits;
