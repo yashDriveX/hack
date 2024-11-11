@@ -1,20 +1,64 @@
-name: Example Workflow
+name: Update PR Description Based on Commits
 
-on: pull_request
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]  # Trigger on PR creation, update, or reopen
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
 
 jobs:
-  example_job:
+  update-pr-description:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write  # Modify as needed
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
 
-    - name: Use GITHUB_TOKEN with GitHub CLI
+    steps:
+    - name: Get PR Number and Commit Messages
+      id: get_commits
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        # Example command using the GitHub CLI
-        gh issue create --title "Test Issue" --body "This is a test issue created by GitHub Actions."
+        # Get the PR number from the event data
+        PR_NUMBER=${{ github.event.pull_request.number }}
+        echo "Retrieved PR Number: $PR_NUMBER"
+
+        # Fetch commit messages for the PR using the GitHub REST API
+        echo "Fetching commit messages for PR #$PR_NUMBER..."
+        commits=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github.v3+json" \
+          "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/commits" | jq -r '.[].commit.message' | sed 's/^/- /')
+
+        # Debugging output to show fetched commit messages
+        echo "Fetched Commits:"
+        echo "$commits"
+        
+        # Set a default message if no commits are found
+        if [ -z "$commits" ]; then
+          echo "No commit messages found for this PR."
+          commits="- No commits found."
+        fi
+
+        # Write to environment variables
+        echo "commits=$commits" >> $GITHUB_ENV
+        echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
+
+    - name: Update PR Description
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const prNumber = process.env.PR_NUMBER;
+          const commits = process.env.COMMITS;
+          
+          const newDescription = `### Pull Request Summary:\n\n### Commits:\n${commits}\n\n---\n_Automatically generated summary._`;
+          
+          await github.rest.pulls.update({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: prNumber,
+            body: newDescription
+          });
+
+    - name: Display Confirmation
+      run: echo "Pull Request description updated successfully."
