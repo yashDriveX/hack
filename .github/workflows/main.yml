@@ -2,7 +2,7 @@ name: Update PR Description Based on Commits
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened,closed]  # Trigger on PR creation, update, or reopen
+    types: [opened, synchronize, reopened]  # Trigger on PR creation, update, or reopen
 
 permissions:
   contents: read
@@ -14,43 +14,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
+    - name: Checkout Repository
       uses: actions/checkout@v3
 
-    - name: Install GitHub CLI
-      run: |
-        echo "Installing GitHub CLI..."
-        sudo apt update
-        sudo apt install -y gh
-        gh auth login --with-token <<< "${{ secrets.TOKEN }}"
-
-    - name: Get PR Number and Commit Messages
-      id: get_commits
-      run: |
-        PR_NUMBER=${{ github.event.pull_request.number }}
-        
-        # Fetch commit messages and format as bullet points
-        COMMITS=$(gh pr view $PR_NUMBER --json commits --jq '.commits[].commit.message' | sed 's/^/- /')
-        
-        echo "commits=$COMMITS" >> $GITHUB_ENV
-        echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
-
-    - name: Update PR Description
-      uses: actions/github-script@v6
+    - name: Generate Pull Request Description
+      id: pr-description
+      uses: octue/generate-pull-request-description@1.0.0.beta-2
       with:
-        github-token: ${{ secrets.TOKEN }}
-        script: |
-          const prNumber = process.env.PR_NUMBER;
-          const commits = process.env.COMMITS;
-          
-          const newDescription = `### Pull Request Summary:\n\n### Commits:\n${commits}\n\n---\n_Automatically generated summary._`;
-          
-          await github.rest.pulls.update({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            pull_number: prNumber,
-            body: newDescription
-          });
+        pull_request_url: ${{ github.event.pull_request.url }}
+        api_token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Display Confirmation
-      run: echo "Pull Request description updated successfully."
+    - name: Update Pull Request Body
+      uses: riskledger/update-pr-description@v2
+      with:
+        body: ${{ steps.pr-description.outputs.pull_request_description }}
+        token: ${{ secrets.GITHUB_TOKEN }}
