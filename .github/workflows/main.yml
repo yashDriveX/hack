@@ -20,6 +20,8 @@ jobs:
     - name: Set up GitHub CLI with Authentication
       env:
         GH_TOKEN: ${{ secrets.TOKEN }}
+        github-token: ${{ secrets.TOKEN }}
+
       run: |
         echo "Installing GitHub CLI..."
         sudo apt update
@@ -29,6 +31,7 @@ jobs:
     - name: Get PR Number and Commit Messages
       id: get_commits
       env:
+        github-token: ${{ secrets.TOKEN }}
         GH_TOKEN: ${{ secrets.TOKEN }}
       run: |
         PR_NUMBER=${{ github.event.pull_request.number }}
