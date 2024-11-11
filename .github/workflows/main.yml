@@ -22,27 +22,18 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        # Get the PR number from the event data
-        PR_NUMBER=${{ github.event.pull_request.number }}
+        # Set PR number directly or from secret if needed
+        PR_NUMBER=${{ github.event.pull_request.number || env.PR_NUMBER }}
         echo "Retrieved PR Number: $PR_NUMBER"
 
-        # Fetch commit messages for the PR using the GitHub REST API
-        echo "Fetching commit messages for PR #$PR_NUMBER..."
-        commits=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
-          -H "Accept: application/vnd.github.v3+json" \
-          "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/commits" | jq -r '.[].commit.message' | sed 's/^/- /')
+        # Fetch commit messages for the PR using GitHub CLI
+        commits=$(gh pr view $PR_NUMBER --json commits --jq '.commits[].commit.message' | sed 's/^/- /')
 
         # Debugging output to show fetched commit messages
         echo "Fetched Commits:"
         echo "$commits"
         
-        # Set a default message if no commits are found
-        if [ -z "$commits" ]; then
-          echo "No commit messages found for this PR."
-          commits="- No commits found."
-        fi
-
-        # Write to environment variables using multiline syntax
+        # Use multiline syntax for setting environment variables
         echo "commits<<EOF" >> $GITHUB_ENV
         echo "$commits" >> $GITHUB_ENV
         echo "EOF" >> $GITHUB_ENV
