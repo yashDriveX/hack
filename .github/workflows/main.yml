@@ -1,55 +1,51 @@
-name: Log Commit Messages and File Changes on PR Merge
+name: Update PR Description Based on Commits
 
 on:
-  pull_request:
-    types: [closed]
+  pull_request_target:
+    types: [opened, synchronize, reopened, closed]
     branches:
       - dev
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
-  log-changes:
-    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'dev'
+  update-pr-description:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Set PR Number
-      id: set_pr_number
-      run: echo "::set-output name=pr_number::${{ github.event.pull_request.number }}"
-
-    - name: Get Commits and Changed Files
-      id: changes
+    - name: Get PR Number and Commit Messages
+      id: get_commits
       run: |
-        echo "## Fetching Commit Messages and Files Changed..."
+        echo "## Retrieving PR Details..."
+        PR_NUMBER=${{ github.event.pull_request.number }}
+        COMMITS=$(gh pr view $PR_NUMBER --json commits --jq '.commits[].commit | "- " + .message')
         
-        # Get the commit messages as a formatted list
-        COMMITS=$(gh pr view ${{ steps.set_pr_number.outputs.pr_number }} --json commits --jq '.commits[].commit.message' | sed 's/^/- /')
-        
-        # Get the changed files as a formatted list
-        FILES=$(gh pr view ${{ steps.set_pr_number.outputs.pr_number }} --json files --jq '.files[].path' | sed 's/^/- /')
-        
-        # Set outputs for commits and files
+        echo "::set-output name=pr_number::$PR_NUMBER"
         echo "::set-output name=commits::$COMMITS"
-        echo "::set-output name=files::$FILES"
 
-    - name: Post Comment on PR
+    - name: Update PR Description
       uses: actions/github-script@v6
       with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
-          const prNumber = ${{ steps.set_pr_number.outputs.pr_number }};
-          const commits = `### Commits:\n${{ steps.changes.outputs.commits }}`;
-          const files = `### Files Changed:\n${{ steps.changes.outputs.files }}`;
+          const prNumber = ${{ steps.get_commits.outputs.pr_number }};
+          const commitMessages = `### Commits:\n${{ steps.get_commits.outputs.commits }}`;
           
-          const comment = `${commits}\n\n${files}`;
+          const newDescription = `### Pull Request Summary:\n\n${commitMessages}\n\n---\n_Merged to dev._`;
           
-          await github.rest.issues.createComment({
+          await github.rest.pulls.update({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            issue_number: prNumber,
-            body: comment
+            pull_number: prNumber,
+            body: newDescription
           });
 
     - name: Display Confirmation
-      run: echo "Pull Request details logged successfully."
+      run: echo "Pull Request description updated successfully."
