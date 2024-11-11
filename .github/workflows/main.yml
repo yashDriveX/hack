@@ -17,53 +17,15 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v3
 
-    - name: Get PR Number and Commit Messages
-      id: get_commits
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        # Retrieve the PR number from the event data
-        PR_NUMBER=${{ github.event.pull_request.number }}
-        echo "Retrieved PR Number: $PR_NUMBER"
-
-        # Fetch commit messages for the PR using the GitHub REST API
-        echo "Fetching commit messages for PR #$PR_NUMBER..."
-        commits=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
-          -H "Accept: application/vnd.github.v3+json" \
-          "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/commits" | jq -r '.[].commit.message' | sed 's/^/- /')
-
-        # Debugging output to show fetched commit messages
-        echo "Fetched Commits:"
-        echo "$commits"
-        
-        # Set a default message if no commits are found
-        if [ -z "$commits" ]; then
-          echo "No commit messages found for this PR."
-          commits="- No commits found."
-        fi
-
-        # Write to environment variables using multiline syntax
-        echo "commits<<EOF" >> $GITHUB_ENV
-        echo "$commits" >> $GITHUB_ENV
-        echo "EOF" >> $GITHUB_ENV
-        echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
-
-    - name: Update PR Description
-      uses: actions/github-script@v6
+    - name: Generate Pull Request Description
+      id: pr-description
+      uses: octue/generate-pull-request-description@1.0.0.beta-2
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          const prNumber = process.env.pr_number;
-          const commits = process.env.commits;
-          
-          const newDescription = `### Pull Request Summary:\n\n### Commits:\n${commits}\n\n---\n_Automatically generated summary._`;
-          
-          await github.rest.pulls.update({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            pull_number: prNumber,
-            body: newDescription
-          });
+        pull_request_url: ${{ github.event.pull_request.url }}
+        api_token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Display Confirmation
-      run: echo "Pull Request description updated successfully."
+    - name: Update Pull Request Body
+      uses: riskledger/update-pr-description@v2
+      with:
+        body: ${{ steps.pr-description.outputs.pull_request_description }}
+        token: ${{ secrets.GITHUB_TOKEN }}
