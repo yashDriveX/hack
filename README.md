@@ -8,14 +8,6 @@ The app was developed as a machine learning exercice from the public dataset [Br
 
 A live version of the application can be found on [Streamlit Community Cloud](https://alejandro-ao-streamlit-cancer-predict-appmain-uitjy1.streamlit.app/). 
 
-## Installation
-
-You can run this inside a virtual environment to make it easier to manage dependencies. I recommend using `conda` to create a new environment and install the required packages. You can create a new environment called `breast-cancer-diagnosis` by running:
-
-```bash
-conda create -n breast-cancer-diagnosis python=3.10 
-```
-
 Then, activate the environment:
 
 ```bash
