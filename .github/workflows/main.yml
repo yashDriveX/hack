@@ -20,8 +20,6 @@ jobs:
     - name: Set up GitHub CLI with Authentication
       env:
         GH_TOKEN: ${{ secrets.TOKEN }}
-        github-token: ${{ secrets.TOKEN }}
-
       run: |
         echo "Installing GitHub CLI..."
         sudo apt update
@@ -31,14 +29,24 @@ jobs:
     - name: Get PR Number and Commit Messages
       id: get_commits
       env:
-        github-token: ${{ secrets.TOKEN }}
         GH_TOKEN: ${{ secrets.TOKEN }}
       run: |
         PR_NUMBER=${{ github.event.pull_request.number }}
+        echo "Retrieved PR Number: $PR_NUMBER"
         
         # Fetch commit messages and format as bullet points
         COMMITS=$(gh pr view $PR_NUMBER --json commits --jq '.commits[].commit.message' | sed 's/^/- /')
         
+        # Debugging output
+        echo "Retrieved Commits: $COMMITS"
+        
+        # Check if COMMITS is empty and set a default message if it is
+        if [ -z "$COMMITS" ]; then
+          echo "No commit messages found for this PR."
+          COMMITS="- No commits found."
+        fi
+        
+        # Write to environment variables
         echo "commits=$COMMITS" >> $GITHUB_ENV
         echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
 
@@ -46,8 +54,6 @@ jobs:
       uses: actions/github-script@v6
       with:
         github-token: ${{ secrets.TOKEN }}
-        GH_TOKEN: ${{ secrets.TOKEN }}
-
         script: |
           const prNumber = process.env.PR_NUMBER;
           const commits = process.env.COMMITS;
