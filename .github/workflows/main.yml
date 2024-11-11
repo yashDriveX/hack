@@ -18,25 +18,33 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Install GitHub CLI
+      run: |
+        echo "Installing GitHub CLI..."
+        sudo apt update
+        sudo apt install -y gh
+        gh auth login --with-token <<< "${{ secrets.TOKEN }}"
+
     - name: Get PR Number and Commit Messages
       id: get_commits
       run: |
-        echo "## Retrieving PR Details..."
         PR_NUMBER=${{ github.event.pull_request.number }}
-        COMMITS=$(gh pr view $PR_NUMBER --json commits --jq '.commits[].commit | "- " + .message')
         
-        echo "::set-output name=pr_number::$PR_NUMBER"
-        echo "::set-output name=commits::$COMMITS"
+        # Fetch commit messages and format as bullet points
+        COMMITS=$(gh pr view $PR_NUMBER --json commits --jq '.commits[].commit.message' | sed 's/^/- /')
+        
+        echo "commits=$COMMITS" >> $GITHUB_ENV
+        echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
 
     - name: Update PR Description
       uses: actions/github-script@v6
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        github-token: ${{ secrets.TOKEN }}
         script: |
-          const prNumber = ${{ steps.get_commits.outputs.pr_number }};
-          const commitMessages = `### Commits:\n${{ steps.get_commits.outputs.commits }}`;
+          const prNumber = process.env.PR_NUMBER;
+          const commits = process.env.COMMITS;
           
-          const newDescription = `### Pull Request Summary:\n\n${commitMessages}\n\n---\n_Merged to dev._`;
+          const newDescription = `### Pull Request Summary:\n\n### Commits:\n${commits}\n\n---\n_Merged._`;
           
           await github.rest.pulls.update({
             owner: context.repo.owner,
