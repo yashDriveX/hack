@@ -14,6 +14,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
     - name: Get PR Number and Commit Messages
       id: get_commits
       env:
@@ -39,8 +42,10 @@ jobs:
           commits="- No commits found."
         fi
 
-        # Write to environment variables
-        echo "commits=$commits" >> $GITHUB_ENV
+        # Write to environment variables using multiline syntax
+        echo "commits<<EOF" >> $GITHUB_ENV
+        echo "$commits" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
         echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
 
     - name: Update PR Description
@@ -48,8 +53,8 @@ jobs:
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
-          const prNumber = process.env.PR_NUMBER;
-          const commits = process.env.COMMITS;
+          const prNumber = process.env.pr_number;
+          const commits = process.env.commits;
           
           const newDescription = `### Pull Request Summary:\n\n### Commits:\n${commits}\n\n---\n_Automatically generated summary._`;
           
