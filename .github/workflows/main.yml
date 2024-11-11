@@ -24,8 +24,19 @@ jobs:
         pull_request_url: ${{ github.event.pull_request.url }}
         api_token: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Format Change Log
+      id: format-changelog
+      run: |
+        # Create a "Change Log" formatted description with each commit message
+        description="### Change Log\n\n"
+        description+="${{ steps.pr-description.outputs.pull_request_description }}\n\n"
+        description+="---\n_Automatically generated summary._\n"
+
+        # Save the formatted description as an output
+        echo "::set-output name=formatted_description::$description"
+
     - name: Update Pull Request Body
       uses: riskledger/update-pr-description@v2
       with:
-        body: ${{ steps.pr-description.outputs.pull_request_description }}
+        body: ${{ steps.format-changelog.outputs.formatted_description }}
         token: ${{ secrets.GITHUB_TOKEN }}
