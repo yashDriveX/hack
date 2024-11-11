@@ -14,10 +14,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
     - name: Get PR Number and Commit Messages
       id: get_commits
       env:
-        GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         # Retrieve the PR number from the event data
         PR_NUMBER=${{ github.event.pull_request.number }}
@@ -48,7 +51,7 @@ jobs:
     - name: Update PR Description
       uses: actions/github-script@v6
       with:
-        github-token: ${{ secrets.TOKEN }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const prNumber = process.env.pr_number;
           const commits = process.env.commits;
