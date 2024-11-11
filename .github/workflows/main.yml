@@ -1,0 +1,55 @@
+name: Log Commit Messages and File Changes on PR Merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - dev
+
+jobs:
+  log-changes:
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'dev'
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set PR Number
+      id: set_pr_number
+      run: echo "::set-output name=pr_number::${{ github.event.pull_request.number }}"
+
+    - name: Get Commits and Changed Files
+      id: changes
+      run: |
+        echo "## Fetching Commit Messages and Files Changed..."
+        
+        # Get the commit messages as a formatted list
+        COMMITS=$(gh pr view ${{ steps.set_pr_number.outputs.pr_number }} --json commits --jq '.commits[].commit.message' | sed 's/^/- /')
+        
+        # Get the changed files as a formatted list
+        FILES=$(gh pr view ${{ steps.set_pr_number.outputs.pr_number }} --json files --jq '.files[].path' | sed 's/^/- /')
+        
+        # Set outputs for commits and files
+        echo "::set-output name=commits::$COMMITS"
+        echo "::set-output name=files::$FILES"
+
+    - name: Post Comment on PR
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const prNumber = ${{ steps.set_pr_number.outputs.pr_number }};
+          const commits = `### Commits:\n${{ steps.changes.outputs.commits }}`;
+          const files = `### Files Changed:\n${{ steps.changes.outputs.files }}`;
+          
+          const comment = `${commits}\n\n${files}`;
+          
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: prNumber,
+            body: comment
+          });
+
+    - name: Display Confirmation
+      run: echo "Pull Request details logged successfully."
