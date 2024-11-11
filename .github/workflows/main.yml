@@ -2,7 +2,7 @@ name: Update PR Description Based on Commits
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]  # Trigger on PR creation, update, or reopen
+    types: [opened, synchronize, reopened,closed]  # Trigger on PR creation, update, or reopen
 
 permissions:
   contents: read
