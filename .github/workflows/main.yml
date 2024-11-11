@@ -1,71 +1,20 @@
-name: Update PR Description Based on Commits
+name: Example Workflow
 
-on:
-  pull_request:
-    types: [opened, synchronize, reopened,closed]
-
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
+on: pull_request
 
 jobs:
-  update-pr-description:
+  example_job:
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: read
+      pull-requests: write  # Modify as needed
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Set up GitHub CLI with Authentication
+    - name: Use GITHUB_TOKEN with GitHub CLI
       env:
-        GH_TOKEN: ${{ secrets.TOKEN }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        echo "Installing GitHub CLI..."
-        sudo apt update
-        sudo apt install -y gh
-        gh auth status  # Check if gh is authenticated
-
-    - name: Get PR Number and Commit Messages
-      id: get_commits
-      env:
-        GH_TOKEN: ${{ secrets.TOKEN }}
-      run: |
-        PR_NUMBER=${{ github.event.pull_request.number }}
-        echo "Retrieved PR Number: $PR_NUMBER"
-        
-        # Fetch commit messages and format as bullet points
-        COMMITS=$(gh pr view $PR_NUMBER --json commits --jq '.commits[].commit.message' | sed 's/^/- /')
-        
-        # Debugging output
-        echo "Retrieved Commits: $COMMITS"
-        
-        # Check if COMMITS is empty and set a default message if it is
-        if [ -z "$COMMITS" ]; then
-          echo "No commit messages found for this PR."
-          COMMITS="- No commits found."
-        fi
-        
-        # Write to environment variables
-        echo "commits=$COMMITS" >> $GITHUB_ENV
-        echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
-
-    - name: Update PR Description
-      uses: actions/github-script@v6
-      with:
-        github-token: ${{ secrets.TOKEN }}
-        script: |
-          const prNumber = process.env.PR_NUMBER;
-          const commits = process.env.COMMITS;
-          
-          const newDescription = `### Pull Request Summary:\n\n### Commits:\n${commits}\n\n---\n_Automatically generated summary._`;
-          
-          await github.rest.pulls.update({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            pull_number: prNumber,
-            body: newDescription
-          });
-
-    - name: Display Confirmation
-      run: echo "Pull Request description updated successfully."
+        # Example command using the GitHub CLI
+        gh issue create --title "Test Issue" --body "This is a test issue created by GitHub Actions."
