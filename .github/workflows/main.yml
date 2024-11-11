@@ -1,55 +1,57 @@
-name: Log Commit Messages and File Changes on PR Merge
+name: Update PR Description Based on Commits
 
 on:
-  pull_request:
-    types: [closed]
-    branches:
-      - dev
+  pull_request_target:
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
 
 jobs:
-  log-changes:
-    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'dev'
+  update-pr-description:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Set PR Number
-      id: set_pr_number
-      run: echo "::set-output name=pr_number::${{ github.event.pull_request.number }}"
-
-    - name: Get Commits and Changed Files
-      id: changes
+    - name: Install GitHub CLI
       run: |
-        echo "## Fetching Commit Messages and Files Changed..."
-        
-        # Get the commit messages as a formatted list
-        COMMITS=$(gh pr view ${{ steps.set_pr_number.outputs.pr_number }} --json commits --jq '.commits[].commit.message' | sed 's/^/- /')
-        
-        # Get the changed files as a formatted list
-        FILES=$(gh pr view ${{ steps.set_pr_number.outputs.pr_number }} --json files --jq '.files[].path' | sed 's/^/- /')
-        
-        # Set outputs for commits and files
-        echo "::set-output name=commits::$COMMITS"
-        echo "::set-output name=files::$FILES"
+        echo "Installing GitHub CLI..."
+        sudo apt update
+        sudo apt install -y gh
+        gh auth login --with-token <<< "${{ secrets.TOKEN }}"
 
-    - name: Post Comment on PR
+    - name: Get PR Number and Commit Messages
+      id: get_commits
+      run: |
+        PR_NUMBER=${{ github.event.pull_request.number }}
+        
+        # Fetch commit messages and format as bullet points
+        COMMITS=$(gh pr view $PR_NUMBER --json commits --jq '.commits[].commit.message' | sed 's/^/- /')
+        
+        echo "commits=$COMMITS" >> $GITHUB_ENV
+        echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
+
+    - name: Update PR Description
       uses: actions/github-script@v6
       with:
+        github-token: ${{ secrets.TOKEN }}
         script: |
-          const prNumber = ${{ steps.set_pr_number.outputs.pr_number }};
-          const commits = `### Commits:\n${{ steps.changes.outputs.commits }}`;
-          const files = `### Files Changed:\n${{ steps.changes.outputs.files }}`;
+          const prNumber = process.env.PR_NUMBER;
+          const commits = process.env.COMMITS;
           
-          const comment = `${commits}\n\n${files}`;
+          const newDescription = `### Pull Request Summary:\n\n### Commits:\n${commits}\n\n---\n_Merged._`;
           
-          await github.rest.issues.createComment({
+          await github.rest.pulls.update({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            issue_number: prNumber,
-            body: comment
+            pull_number: prNumber,
+            body: newDescription
           });
 
     - name: Display Confirmation
-      run: echo "Pull Request details logged successfully."
+      run: echo "Pull Request description updated successfully."
