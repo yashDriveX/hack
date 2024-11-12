@@ -35,6 +35,14 @@ jobs:
           echo -e "$change_log"
           echo "::set-output name=change_log::$change_log"
 
+      - name: Install GitHub CLI
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'  # Required for GitHub CLI installation via npm
+
+      - name: Install GitHub CLI via npm
+        run: npm install -g @cli/cli
+
       - name: Update Pull Request Description
         if: github.event_name == 'pull_request'
         env:
@@ -52,4 +60,3 @@ jobs:
           
           # Update the PR description using the GitHub CLI
           gh pr edit "$pr_number" --body "$new_description"
-        uses: cli/cli@latest
