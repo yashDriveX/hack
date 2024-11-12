@@ -1,4 +1,4 @@
-name: Format Commit Description
+name: Format Change Log
 
 on:
   pull_request:
@@ -6,35 +6,39 @@ on:
   push:
     branches:
       - main
-      - dev  # Run this on the main and dev branches, or specify others as needed
-      - Team
+      - dev  # Customize to your needs
 
 jobs:
-  format-description:
+  format-change-log:
     runs-on: ubuntu-latest
 
     steps:
       - name: Check out the repository
         uses: actions/checkout@v3
 
-      - name: Extract Commit Messages
-        id: extract_commits
+      - name: Extract and Format Commit Messages
+        id: format_commits
         run: |
-          # Get commit messages
-          COMMIT_MESSAGES=$(git log -1 --pretty=%B)
-          
-          # Format messages nicely (for example, adding bullet points)
-          FORMATTED_COMMIT_MESSAGES=$(echo "$COMMIT_MESSAGES" | sed 's/^/- /')
-          
-          # Set the formatted message as an output for later steps
-          echo "::set-output name=formatted_commit_messages::$FORMATTED_COMMIT_MESSAGES"
+          # Extract the last 5 commit messages for formatting
+          commits=$(git log -5 --pretty=format:"%s (%h)")
 
-      - name: Set Pull Request Description
+          # Format as Change Log
+          change_log="### Change Log\n=--------------------------"
+          
+          # Process each commit message
+          while IFS= read -r commit; do
+            formatted_commit=$(echo "$commit" | sed -E 's/^(.+?): /- \1: /')
+            change_log="${change_log}\n${formatted_commit}"
+          done <<< "$commits"
+
+          # Output formatted log
+          echo -e "$change_log"
+          echo "::set-output name=change_log::$change_log"
+
+      - name: Post Change Log to Pull Request
         if: github.event_name == 'pull_request'
         uses: peter-evans/create-or-update-comment@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           issue-number: ${{ github.event.pull_request.number }}
-          body: |
-            ### 📝 Commit Description
-            ${{ steps.extract_commits.outputs.formatted_commit_messages }}
+          body: ${{ steps.format_commits.outputs.change_log }}
