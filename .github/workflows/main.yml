@@ -1,59 +1,39 @@
-name: Format Change Log
+name: Generate Change Log
 
 on:
-  pull_request:
-    types: [opened, synchronize]
   push:
     branches:
       - main
-      - dev  # Customize to your needs
+  workflow_dispatch:
 
 jobs:
-  format-change-log:
+  changelog:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Check out the repository
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Extract and Format Commit Messages
-        id: format_commits
+      - name: Extract Commit Messages
+        id: extract_commits
         run: |
-          # Extract commit messages, skipping merge commits, for the last 5 commits
-          commits=$(git log -5 --pretty=format:"%s (%h)" --no-merges)
+          # Fetch commit messages from the latest commits (e.g., last 20)
+          COMMIT_MESSAGES=$(git log -n 20 --pretty=format:"%s" | grep -E "^(hotfix|fix|feat|edit)")
+          
+          # Format the commit messages as per requirement
+          FORMATTED_CHANGE_LOG="Change Log\n"
+          while IFS= read -r COMMIT; do
+            # Capture the issue number and title
+            ISSUE_NUMBER=$(echo "$COMMIT" | grep -oE '#[0-9]+')
+            FORMATTED_COMMIT="${COMMIT^} (${COMMIT} ${ISSUE_NUMBER})"
+            
+            FORMATTED_CHANGE_LOG+="${FORMATTED_COMMIT}\n"
+          done <<< "$COMMIT_MESSAGES"
+          
+          # Save the result as output
+          echo "formatted_change_log<<EOF" >> $GITHUB_ENV
+          echo -e "$FORMATTED_CHANGE_LOG" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
 
-          # Initialize formatted change log
-          change_log="Change Log\n=--------------------------"
-
-          # Process each commit message
-          while IFS= read -r commit; do
-            formatted_commit=$(echo "$commit" | sed -E 's/^(.+?): /- \1: /')
-            change_log="${change_log}\n${formatted_commit}"
-          done <<< "$commits"
-
-          # Output formatted change log with preserved newlines
-          echo -e "$change_log"
-          echo "::set-output name=change_log::$change_log"
-
-      - name: Install GitHub CLI
-        uses: actions/setup-gh@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Update Pull Request Description
-        if: github.event_name == 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Display Change Log
         run: |
-          # Use the GitHub API to update the pull request description
-          pr_number=${{ github.event.pull_request.number }}
-          change_log="${{ steps.format_commits.outputs.change_log }}"
-          
-          # Fetch the current PR description
-          current_description=$(gh pr view "$pr_number" --json body -q ".body")
-
-          # Update the PR description with the Change Log at the bottom
-          new_description="${current_description}\n\n${change_log}"
-          
-          # Update the PR description using the GitHub CLI
-          gh pr edit "$pr_number" --body "$new_description"
+          echo -e "${{ env.formatted_change_log }}"
