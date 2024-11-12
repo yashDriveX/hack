@@ -1,7 +1,7 @@
-
 name: Creates and Updates PR
+
 on:
-    pull_request:
+  pull_request:
 
 jobs:
   pull-request:
@@ -10,14 +10,19 @@ jobs:
       # Check out the repository code
       - uses: actions/checkout@v3
 
-      # Generate a pull request description (this is a placeholder; replace with your actual script)
-      - name: Generate PR description
-        run: |
-          # Example: Generate description based on commit messages or other criteria
-          echo "Generating PR description based on changes..."
-          # Here you would have a script that sets the description output
-          echo "::set-output name=description::This is an auto-generated description based on the latest changes."
+      # Generate a pull request description from commit messages
+      - name: Generate PR Description
         id: description
+        run: |
+          echo "### Change Log" > description.md
+          echo "" >> description.md
+          
+          # Collect commit messages and format as bullet points
+          git log -1 --pretty=format:"- %s" >> description.md
+          
+          # Set the output for use in updating the PR description
+          description=$(cat description.md)
+          echo "::set-output name=description::$description"
 
       # Create or update the pull request from `master` to `release`
       - name: Create Pull Request
@@ -25,11 +30,9 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           pr_title: "Release: Updates from master"
-      
-      # Update the pull request description
-      - name: Update Pull Request Description
-        uses: kt3k/update-pr-description@v2
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
           pr_body: ${{ steps.description.outputs.description }}
-
+      
+      # Update the pull request description if it already exists
+      - name: Update Pull Request Description
+        if: steps.description.outputs.description != ''
+        uses: kt3k/update-pr-description@v2
