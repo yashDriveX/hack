@@ -1,4 +1,4 @@
-name: Generate Change Log
+name: Generate Changelog
 
 on:
   push:
@@ -7,33 +7,51 @@ on:
   workflow_dispatch:
 
 jobs:
-  changelog:
+  generate-changelog:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Fetch all history for all branches and tags
 
-      - name: Extract Commit Messages
-        id: extract_commits
+      - name: Generate Changelog
+        id: changelog
         run: |
-          # Fetch commit messages from the latest commits (e.g., last 20)
+          # Fetch the latest 20 commit messages
           COMMIT_MESSAGES=$(git log -n 20 --pretty=format:"%s" | grep -E "^(hotfix|fix|feat|edit)")
-          
-          # Format the commit messages as per requirement
-          FORMATTED_CHANGE_LOG="Change Log\n"
-          while IFS= read -r COMMIT; do
-            # Capture the issue number and title
-            ISSUE_NUMBER=$(echo "$COMMIT" | grep -oE '#[0-9]+')
-            FORMATTED_COMMIT="${COMMIT^} (${COMMIT} ${ISSUE_NUMBER})"
-            
-            FORMATTED_CHANGE_LOG+="${FORMATTED_COMMIT}\n"
-          done <<< "$COMMIT_MESSAGES"
-          
-          # Save the result as output
-          echo "formatted_change_log<<EOF" >> $GITHUB_ENV
-          echo -e "$FORMATTED_CHANGE_LOG" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
 
-      - name: Display Change Log
+          # Check if there are matching commit messages
+          if [ -z "$COMMIT_MESSAGES" ]; then
+            echo "No matching commit messages found."
+            echo "formatted_change_log=No matching commit messages found." >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Initialize the changelog
+          FORMATTED_CHANGE_LOG="Change Log\n"
+
+          # Process each commit message
+          while IFS= read -r COMMIT; do
+            # Extract the issue number (if present)
+            ISSUE_NUMBER=$(echo "$COMMIT" | grep -oE '#[0-9]+')
+            # Capitalize the first letter of the commit message
+            CAPITALIZED_COMMIT="$(tr '[:lower:]' '[:upper:]' <<< ${COMMIT:0:1})${COMMIT:1}"
+            # Format the commit message
+            if [ -n "$ISSUE_NUMBER" ]; then
+              FORMATTED_COMMIT="$CAPITALIZED_COMMIT ($COMMIT $ISSUE_NUMBER)"
+            else
+              FORMATTED_COMMIT="$CAPITALIZED_COMMIT ($COMMIT)"
+            fi
+            # Append to the changelog
+            FORMATTED_CHANGE_LOG+="$FORMATTED_COMMIT\n"
+          done <<< "$COMMIT_MESSAGES"
+
+          # Output the formatted changelog
+          echo "formatted_change_log<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$FORMATTED_CHANGE_LOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Display Changelog
         run: |
-          echo -e "${{ env.formatted_change_log }}"
+          echo "${{ steps.changelog.outputs.formatted_change_log }}"
