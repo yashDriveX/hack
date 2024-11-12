@@ -1,38 +1,33 @@
-name: Creates and Updates PR
+name: Update PR Description Based on Commits
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
 
 jobs:
-  pull-request:
+  update-pr-description:
     runs-on: ubuntu-latest
+
     steps:
-      # Check out the repository code
-      - uses: actions/checkout@v3
+    - name: Checkout Repository
+      uses: actions/checkout@v3
 
-      # Generate a pull request description from commit messages
-      - name: Generate PR Description
-        id: description
-        run: |
-          echo "### Change Log" > description.md
-          echo "" >> description.md
-          
-          # Collect commit messages and format as bullet points
-          git log -1 --pretty=format:"- %s" >> description.md
-          
-          # Set the output for use in updating the PR description
-          description=$(cat description.md)
-          echo "::set-output name=description::$description"
+    - name: Generate Change Log
+      id: changelog
+      run: |
+        echo "### Change Log" > changelog.md
+        echo "" >> changelog.md
+        git log --format="- %s" origin/main..HEAD >> changelog.md
+        changelog=$(cat changelog.md)
+        echo "changelog=$changelog" >> $GITHUB_ENV
 
-      # Create or update the pull request from `master` to `release`
-      - name: Create Pull Request
-        uses: repo-sync/pull-request@v2
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          pr_title: "Release: Updates from master"
-          pr_body: ${{ steps.description.outputs.description }}
-      
-      # Update the pull request description if it already exists
-      - name: Update Pull Request Description
-        if: steps.description.outputs.description != ''
-        uses: kt3k/update-pr-description@v2
+    - name: Update Pull Request Description
+      uses: kt3k/update-pr-description@v2
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        pr_body: ${{ env.changelog }}
