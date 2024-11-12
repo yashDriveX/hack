@@ -1,51 +1,37 @@
-name: Update PR Description Based on Commits
 
+name: Creates and Updates PR
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
+    pull_request:
 
 jobs:
-  update-pr-description:
+  pull-request:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      # Check out the repository code
+      - uses: actions/checkout@v3
 
-    - name: Generate Pull Request Description
-      id: pr-description
-      uses: octue/generate-pull-request-description@1.0.0.beta-2
-      with:
-        pull_request_url: ${{ github.event.pull_request.url }}
-        api_token: ${{ secrets.GITHUB_TOKEN }}
+      # Generate a pull request description (this is a placeholder; replace with your actual script)
+      - name: Generate PR description
+        run: |
+          # Example: Generate description based on commit messages or other criteria
+          echo "Generating PR description based on changes..."
+          # Here you would have a script that sets the description output
+          echo "::set-output name=description::This is an auto-generated description based on the latest changes."
+        id: description
 
-    - name: Format Change Log
-      id: format-changelog
-      run: |
-        # Initialize the Change Log header only once
-        description="### Change Log\n\n"
+      # Create or update the pull request from `master` to `release`
+      - name: Create Pull Request
+        uses: repo-sync/pull-request@v2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          destination_branch: release
+          pr_title: "Release: Updates from master"
+      
+      # Update the pull request description
+      - name: Update Pull Request Description
+        uses: kt3k/update-pr-description@v2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          pr_body: ${{ steps.description.outputs.description }}
+          destination_branch: release
 
-        # Loop through each line in the generated PR description, filtering out unwanted lines
-        while read -r line; do
-          # Filter out redundant "Change Log" headers and "Automatically generated" summaries
-          if [[ "$line" != *"Automatically generated summary"* && "$line" != *"### Change Log"* ]]; then
-            # Avoid adding duplicate commit messages
-            if [[ ! "$description" =~ "$line" ]]; then
-              description+="- $line\n"
-            fi
-          fi
-        done <<< "${{ steps.pr-description.outputs.pull_request_description }}"
-
-        # Save the cleaned and formatted description for the next step
-        echo "formatted_description=$description" >> $GITHUB_ENV
-
-    - name: Update Pull Request Body
-      uses: riskledger/update-pr-description@v2
-      with:
-        body: ${{ env.formatted_description }}
-        token: ${{ secrets.GITHUB_TOKEN }}
