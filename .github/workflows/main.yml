@@ -19,26 +19,37 @@ jobs:
       - name: Extract and Format Commit Messages
         id: format_commits
         run: |
-          # Extract the last 5 commit messages for formatting
-          commits=$(git log -5 --pretty=format:"%s (%h)")
+          # Extract commit messages, skipping merge commits, for the last 5 commits
+          commits=$(git log -5 --pretty=format:"%s (%h)" --no-merges)
 
-          # Format as Change Log
-          change_log="### Change Log\n=--------------------------"
-          
+          # Initialize formatted change log
+          change_log="Change Log\n=--------------------------"
+
           # Process each commit message
           while IFS= read -r commit; do
             formatted_commit=$(echo "$commit" | sed -E 's/^(.+?): /- \1: /')
             change_log="${change_log}\n${formatted_commit}"
           done <<< "$commits"
 
-          # Output formatted log
+          # Output formatted change log with preserved newlines
           echo -e "$change_log"
           echo "::set-output name=change_log::$change_log"
 
-      - name: Post Change Log to Pull Request
+      - name: Update Pull Request Description
         if: github.event_name == 'pull_request'
-        uses: peter-evans/create-or-update-comment@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          issue-number: ${{ github.event.pull_request.number }}
-          body: ${{ steps.format_commits.outputs.change_log }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Use the GitHub API to update the pull request description
+          pr_number=${{ github.event.pull_request.number }}
+          change_log="${{ steps.format_commits.outputs.change_log }}"
+          
+          # Fetch the current PR description
+          current_description=$(gh pr view "$pr_number" --json body -q ".body")
+
+          # Update the PR description with the Change Log at the bottom
+          new_description="${current_description}\n\n${change_log}"
+          
+          # Update the PR description using the GitHub CLI
+          gh pr edit "$pr_number" --body "$new_description"
+        uses: cli/cli@latest
