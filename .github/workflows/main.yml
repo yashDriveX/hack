@@ -36,12 +36,9 @@ jobs:
           echo "::set-output name=change_log::$change_log"
 
       - name: Install GitHub CLI
-        uses: actions/setup-node@v3
+        uses: actions/setup-gh@v3
         with:
-          node-version: '16'  # Required for GitHub CLI installation via npm
-
-      - name: Install GitHub CLI via npm
-        run: npm install -g @cli/cli
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update Pull Request Description
         if: github.event_name == 'pull_request'
