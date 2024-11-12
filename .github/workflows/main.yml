@@ -1,38 +1,40 @@
-name: Update PR Description Based on Commits
+name: Format Commit Description
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
-
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
+    types: [opened, synchronize]
+  push:
+    branches:
+      - main
+      - dev  # Run this on the main and dev branches, or specify others as needed
+      - Team
 
 jobs:
-  update-pr-description:
+  format-description:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 0  # Fetch all history for all branches and tags
+      - name: Check out the repository
+        uses: actions/checkout@v3
 
-    - name: Fetch All Branches
-      run: git fetch --all
+      - name: Extract Commit Messages
+        id: extract_commits
+        run: |
+          # Get commit messages
+          COMMIT_MESSAGES=$(git log -1 --pretty=%B)
+          
+          # Format messages nicely (for example, adding bullet points)
+          FORMATTED_COMMIT_MESSAGES=$(echo "$COMMIT_MESSAGES" | sed 's/^/- /')
+          
+          # Set the formatted message as an output for later steps
+          echo "::set-output name=formatted_commit_messages::$FORMATTED_COMMIT_MESSAGES"
 
-    - name: Generate Change Log
-      id: changelog
-      run: |
-        echo "### Change Log" > changelog.md
-        echo "" >> changelog.md
-        git log --format="- %s" origin/main..HEAD >> changelog.md
-        changelog=$(cat changelog.md)
-        echo "changelog=$changelog" >> $GITHUB_ENV
-
-    - name: Update Pull Request Description
-      uses: kt3k/update-pr-description@v2
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        pr_body: ${{ env.changelog }}
+      - name: Set Pull Request Description
+        if: github.event_name == 'pull_request'
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ### 📝 Commit Description
+            ${{ steps.extract_commits.outputs.formatted_commit_messages }}
