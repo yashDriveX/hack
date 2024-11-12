@@ -15,7 +15,7 @@ jobs:
 
       - name: Get PR Commits
         id: 'get-pr-commits'
-        uses: luizgustavosaraiva/get-pull-requests-commits@master
+        uses: luizgustavosaraiva/get-pull-requests-commits@v1.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
